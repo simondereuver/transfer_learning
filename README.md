@@ -8,3 +8,4 @@ The datasets can be aquired [Cats vs Dogs](https://www.kaggle.com/datasets/vishn
 
 ## Enviroment
 Create a Python virtual enviroment and run pip install -r requirements.txt to create the enviroment required to run the code. Recommended is Cuda 12.5 and Tensorflow 2.19.0 as that has been used in this project. Run: ```python3 -m pip install 'tensorflow[and-cuda]'```
+
