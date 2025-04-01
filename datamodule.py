@@ -6,6 +6,59 @@ if sys.platform.startswith("linux"):
     matplotlib.use("TkAgg")  # for linux
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
+import tensorflow_datasets as tfds
+
+
+import tensorflow as tf
+import tensorflow_datasets as tfds
+
+def load_stanford_dogs_dataset1(image_size=(180, 180), batch_size=128, val_split=0.2):
+    """
+    Creates a validation set from the training data.
+    """
+    (ds_train, ds_test), ds_info = tfds.load(
+        'stanford_dogs',
+        split=['train', 'test'],
+        shuffle_files=True,
+        as_supervised=True,
+        with_info=True,
+        data_dir='data/tfds'
+    )
+
+    def preprocess(img, label):
+        img = tf.image.resize(img, image_size)
+        return img, label
+
+    # Combine and shuffle before splitting
+    full_ds = ds_train.map(preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    full_ds = full_ds.shuffle(ds_info.splits['train'].num_examples, reshuffle_each_iteration=False)
+
+    total_train = ds_info.splits['train'].num_examples
+    val_size = int(val_split * total_train)
+
+    ds_val = full_ds.take(val_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    ds_train = full_ds.skip(val_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+    return ds_train, ds_val, ds_info
+
+def load_stanford_dogs_dataset(image_size=(180, 180), batch_size=128):
+    """
+    Uses the test set as validation data.
+    """
+    (ds_train, ds_test), ds_info = tfds.load('stanford_dogs', split=['train', 'test'], shuffle_files=True, as_supervised=True, with_info=True, data_dir='data/tfds')
+    
+    def preprocess(img, label):
+        img = tf.image.resize(img, image_size)
+        return img, label
+
+    ds_train = ds_train.map(preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+    ds_test = ds_test.map(preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+
+    ds_train = ds_train.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    ds_test = ds_test.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+    return ds_train, ds_test, ds_info
 
 def filter_images_cats_dogs(path='kagglecatsanddogs_5340/PetImages'):
     """

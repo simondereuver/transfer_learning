@@ -173,5 +173,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-#dataset
+#datasets
 /kagglecatsanddogs_5340
+/data/tfds
