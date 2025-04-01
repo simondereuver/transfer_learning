@@ -10,14 +10,14 @@ if __name__ == "__main__":
     #path_to_images = "kagglecatsanddogs_5340" #uncomment and adjust path if needed
 
     #filter out corrupted images
-    #dm.filter_images_cats_dogs() #uncomment if running first time
+    dm.filter_images(path="data/stanford_dogs/Images") #uncomment if running first time
     
     IMAGE_SIZE = (180, 180)
     BATCH_SIZE = 128
     NUM_CLASSES_STANFORD_DOGS = 120
     NUM_CLASSES_CATS_DOGS = 2
 
-    train_ds, val_ds = dm.train_val_split(image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
+    train_ds, val_ds = dm.train_val_split(image_size=IMAGE_SIZE, batch_size=BATCH_SIZE, path="stanford_dogs/Images")
 
     dm.vis_data(train_ds)
 
