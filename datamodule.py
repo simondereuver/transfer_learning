@@ -7,7 +7,7 @@ if sys.platform.startswith("linux"):
 import matplotlib.pyplot as plt
 import numpy as np
 
-def filter_images(path='kagglecatsanddogs_5340/PetImages'):
+def filter_images(path='data/kagglecatsanddogs_5340/PetImages'):
     """
     Filters corrupt images from the cat vs dogs dataset from kaggle.
     """
@@ -31,7 +31,7 @@ def filter_images(path='kagglecatsanddogs_5340/PetImages'):
 
     print(f"Deleted {num_skipped} images.")
 
-def train_val_split(image_size, batch_size, path='kagglecatsanddogs_5340/PetImages'):
+def train_val_split(image_size, batch_size, path='data/kagglecatsanddogs_5340/PetImages'):
     """Creates a training and validation split of data"""
     train_ds, val_ds = keras.utils.image_dataset_from_directory(
             path,
