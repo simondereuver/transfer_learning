@@ -7,14 +7,14 @@ if sys.platform.startswith("linux"):
 import matplotlib.pyplot as plt
 import numpy as np
 
-def filter_images_cats_dogs(path='kagglecatsanddogs_5340/PetImages'):
+def filter_images(path='kagglecatsanddogs_5340/PetImages'):
     """
     Filters corrupt images from the cat vs dogs dataset from kaggle.
-
     """
     print('Starting image filtering.')
     num_skipped = 0
-    for folder_name in ("Cat", "Dog"):
+    for folder_name in os.listdir(path):
+        #print('FOLDER NAMES:',folder_name) debugging
         folder_path = os.path.join(path, folder_name)
         for fname in os.listdir(folder_path):
             fpath = os.path.join(folder_path, fname)
@@ -37,7 +37,7 @@ def train_val_split(image_size, batch_size, path='kagglecatsanddogs_5340/PetImag
             path,
             validation_split=0.2,
             subset="both",
-            seed=1337,
+            seed=42,
             image_size=image_size,
             batch_size=batch_size,
         )
