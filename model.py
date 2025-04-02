@@ -45,12 +45,12 @@ def make_model(input_shape, num_classes):
     outputs = layers.Dense(units, activation=None)(x)
     return keras.Model(inputs, outputs)
 
-def train_model(model, train_ds, val_ds, epochs, ckpt_path, learning_rate=1e-4):
+def train_model(model, train_ds, val_ds, epochs, ckpt_path, learning_rate=1e-4, ):
     """Compile and train a given model."""
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate),
-        loss=keras.losses.BinaryCrossentropy(from_logits=True),
-        metrics=[keras.metrics.BinaryAccuracy(name="acc")],
+        loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=[keras.metrics.SparseCategoricalAccuracy(name="acc")],
     )
     callbacks = [
         keras.callbacks.ModelCheckpoint(ckpt_path),
