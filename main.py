@@ -1,12 +1,11 @@
 import datamodule as dm
 import model as custom_model
 from tensorflow import data as tf_data
-from keras import layers
-import keras
+from tensorflow.keras import layers
+import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
-
+def main():
     #path_to_images = "kagglecatsanddogs_5340" #uncomment and adjust path if needed
 
     #filter out corrupted images
@@ -18,8 +17,8 @@ if __name__ == "__main__":
     NUM_CLASSES_CATS_DOGS = 2
 
     # TODO: fix train_val_split to also create a test split so we can evaluate models
-    train_ds, val_ds = dm.train_val_split(image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
-
+    #train_ds, val_ds = dm.train_val_split(image_size=IMAGE_SIZE, batch_size=BATCH_SIZE)
+    train_ds, val_ds, test_ds = dm.train_val_test_split(image_size=IMAGE_SIZE, batch_size=BATCH_SIZE, path="data/PetImages")
     #dm.vis_data(train_ds)
 
     #set how you want to augment the data
@@ -36,6 +35,7 @@ if __name__ == "__main__":
     # Prefetching samples in GPU memory helps maximize GPU utilization.
     train_ds = train_ds.prefetch(tf_data.AUTOTUNE)
     val_ds = val_ds.prefetch(tf_data.AUTOTUNE)
+    test_ds = test_ds.prefetch(tf_data.AUTOTUNE)
 
     #dm.vis_data_augmentations(train_ds, data_augmentation_layers)
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     x = stanford_model.get_layer('dropout').output
     
     #connect to output layer
-    new_output = layers.Dense(NUM_CLASSES_CATS_DOGS, activation=None)(x)
+    new_output = layers.Dense(1, activation=None)(x)
 
     #create the new model
     ex2_model = keras.Model(inputs=stanford_model.input, outputs=new_output)
@@ -81,6 +81,12 @@ if __name__ == "__main__":
         validation_data=val_ds,
     )
 
+    test_loss, test_accuracy = ex2_model.evaluate(test_ds)
+    print(f"Test Loss: {test_loss:.4f}")
+    print(f"Test Accuracy: {test_accuracy:.4f}")
+
+if __name__ == "__main__":
+    main()
     """
     model = custom_model.make_model(input_shape=IMAGE_SIZE + (3,), num_classes=NUM_CLASSES_STANFORD_DOGS)
     keras.utils.plot_model(model, show_shapes=True)

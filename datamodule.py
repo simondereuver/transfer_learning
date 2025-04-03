@@ -1,10 +1,10 @@
 import os
 import sys
-import keras
-import matplotlib
-if sys.platform.startswith("linux"):
-    matplotlib.use("TkAgg")  # for linux
-import matplotlib.pyplot as plt
+import tensorflow.keras as keras
+#import matplotlib
+#if sys.platform.startswith("linux"):
+#    matplotlib.use("TkAgg")  # for linux
+#import matplotlib.pyplot as plt
 import numpy as np
 
 def filter_images(path='data/kagglecatsanddogs_5340/PetImages'):
@@ -42,6 +42,24 @@ def train_val_split(image_size, batch_size, path='data/kagglecatsanddogs_5340/Pe
             batch_size=batch_size,
         )
     return train_ds, val_ds
+
+def train_val_test_split(image_size, batch_size, path='data/kagglecatsanddogs_5340/PetImages'):
+    train_ds, split_this_to_val_and_test  = keras.utils.image_dataset_from_directory(
+        path,
+        validation_split=0.3,
+        subset="both",
+        seed=42,
+        image_size=image_size,
+        batch_size=batch_size,
+    )
+
+    len = split_this_to_val_and_test.cardinality().numpy()
+    val_len = len // 2
+    val_ds = split_this_to_val_and_test.take(val_len)
+    test_ds = split_this_to_val_and_test.skip(val_len)
+
+    return train_ds, val_ds, test_ds
+
 
 def vis_data(data):
     """
