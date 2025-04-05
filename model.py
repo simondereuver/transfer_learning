@@ -52,9 +52,12 @@ def train_model(model, train_ds, val_ds, epochs, ckpt_path, learning_rate=1e-4, 
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=[keras.metrics.SparseCategoricalAccuracy(name="acc")],
     )
-    callbacks = [
-        keras.callbacks.ModelCheckpoint(ckpt_path),
-    ]
+    callbacks = keras.callbacks.ModelCheckpoint(
+        ckpt_path,
+        monitor='val_loss',
+        save_best_only=True,
+        verbose=1
+    )
 
     history = model.fit(
         train_ds,

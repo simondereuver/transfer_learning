@@ -3,7 +3,8 @@ import sys
 import tensorflow.keras as keras
 import matplotlib
 if sys.platform.startswith("linux"):
-    matplotlib.use("TkAgg")  # for linux
+#    matplotlib.use("TkAgg")  # for linux
+    matplotlib.use("Agg")  # for linux
 import matplotlib.pyplot as plt
 import numpy as np
 
