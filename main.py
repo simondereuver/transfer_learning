@@ -79,7 +79,8 @@ def tl_ex1(data_path_catsvdogs, data_path_stanford, epochs, lr, batch_size):
         "final_test_loss": final_test_loss_cvd,
         "final_test_acc": final_test_acc_cvd,
     }
-
+    keras.backend.clear_session()
+    keras.mixed_precision.set_global_policy('mixed_float16')
     # stanford model
     dm.filter_images(path=data_path_stanford)
 
