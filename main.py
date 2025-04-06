@@ -1,4 +1,5 @@
 import os
+import tensorflow
 import tensorflow.keras as keras
 from experiments import tl_ex1, tl_ex2, tl_ex3, tl_ex4
 from datamodule import make_table
@@ -70,17 +71,26 @@ def main():
     table_ex3      = make_table("Experiment 3", results3, EPOCHS)
     table_ex4      = make_table("Experiment 4", results4, EPOCHS)
 
-    if not os.path.exists("results"):
-        os.makedirs("results")
-    with open("results/cvd_results.txt", "w") as f:
+    gpus = tensorflow.config.list_physical_devices('GPU')
+    if gpus:
+        gpu_details = tensorflow.config.experimental.get_device_details(gpus[0])
+        gpu_name = gpu_details.get("device_name", "UnknownGPU")
+    else:
+        gpu_name = "NoGPU"
+
+    gpu_name_path = gpu_name.replace(" ", "_")
+    results_path = "results/" + gpu_name_path
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+    with open(f"{results_path}/cvd_results.txt", "w") as f:
         f.write(table_cvd)
-    with open("results/stanford_results.txt", "w") as f:
+    with open(f"{results_path}/stanford_results.txt", "w") as f:
         f.write(table_stanford)
-    with open("results/experiment2_results.txt", "w") as f:
+    with open(f"{results_path}/experiment2_results.txt", "w") as f:
         f.write(table_ex2)
-    with open("results/experiment3_results.txt", "w") as f:
+    with open(f"{results_path}/experiment3_results.txt", "w") as f:
         f.write(table_ex3)
-    with open("results/experiment4_results.txt", "w") as f:
+    with open(f"{results_path}/experiment4_results.txt", "w") as f:
         f.write(table_ex4)
 
     print("All experiments finished, saved results to results/results.txt")
