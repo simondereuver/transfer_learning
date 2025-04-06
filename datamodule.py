@@ -7,6 +7,7 @@ if sys.platform.startswith("linux"):
     matplotlib.use("Agg")  # for linux
 import matplotlib.pyplot as plt
 import numpy as np
+from tabulate import tabulate
 
 def filter_images(path='data/kagglecatsanddogs_5340/PetImages'):
     """
@@ -93,3 +94,35 @@ def vis_data_augmentations(data, data_augmentation_layers):
             plt.imshow(np.array(augmented_images[0]).astype("uint8"))
             plt.axis("off")
     plt.show()
+
+def make_table(model, results, epochs):
+    rows = []
+    for i in range(epochs):
+        row = [
+            i + 1,
+            results["epoch_train_loss"][i],
+            results["epoch_train_acc"][i],
+            results["epoch_val_loss"][i],
+            results["epoch_val_acc"][i],
+            results["epoch_test_loss"][i],
+            results["epoch_test_acc"][i]
+        ]
+        rows.append(row)
+
+    idx = np.argmin(results["epoch_val_loss"])
+    best_row = [
+        f"Best (Epoch {idx + 1})",
+        results["epoch_train_loss"][idx],
+        results["epoch_train_acc"][idx],
+        results["epoch_val_loss"][idx],
+        results["epoch_val_acc"][idx],
+        results["epoch_test_loss"][idx],
+        results["epoch_test_acc"][idx]
+    ]
+    rows.append(best_row)
+
+    headers = ["Epoch", "Train Loss", "Train Acc", "Val Loss", "Val Acc", "Test Loss", "Test Acc"]
+    table_str = tabulate(rows, headers=headers, tablefmt="mixed_outline")
+    print(f"\nModel: {model}")
+    print(table_str)
+    return table_str
