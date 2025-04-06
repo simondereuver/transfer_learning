@@ -12,75 +12,142 @@ from model import make_model
 NUM_CLASSES_STANFORD_DOGS = 120
 IMAGE_SIZE=(180, 180)
 
-def tl_ex1(data_path, epochs, lr, batch_size):
-    """implement stanford_model.py here instead. don't save the stanford model just return it (the best one)"""
-    dm.filter_images(path=data_path)
+class TestMetricsCallback(keras.callbacks.Callback):
+    def __init__(self, test_ds):
+        super().__init__()
+        self.test_ds = test_ds
+        self.epoch_test_loss = []
+        self.epoch_test_acc = []
+    
+    # for storing epoch losses and accuracies
+    def on_epoch_end(self, epoch, logs=None):
+        loss, acc = self.model.evaluate(self.test_ds, verbose=0)
+        self.epoch_test_loss.append(loss)
+        self.epoch_test_acc.append(acc)
 
-    train_ds, val_ds = dm.train_val_split(image_size=IMAGE_SIZE, batch_size=batch_size, path=data_path)
+
+def tl_ex1(data_path_catsvdogs, data_path_stanford, epochs, lr, batch_size):
+    """Experiment 1: Train and evaluate base cats vs dogs model. Train and evaluate the stanford model."""
+    # barebone cnn on the cats vs dogs
+    dm.filter_images(path=data_path_catsvdogs)
+    train_ds_cvd, val_ds_cvd, test_ds_cvd = dm.train_val_test_split(image_size=IMAGE_SIZE, batch_size=batch_size, path=data_path_catsvdogs)
+    data_augmentation_layers = [
+        layers.RandomFlip("horizontal"),
+        layers.RandomRotation(0.1),
+    ]
+
+    train_ds_cvd = train_ds_cvd.map(
+        lambda img, label: (dm.data_augmentation(img, data_augmentation_layers), label),
+        num_parallel_calls=tf_data.AUTOTUNE,
+    )
+
+    train_ds_cvd = train_ds_cvd.prefetch(tf_data.AUTOTUNE)
+    val_ds_cvd = val_ds_cvd.prefetch(tf_data.AUTOTUNE)
+    test_ds_cvd = test_ds_cvd.prefetch(tf_data.AUTOTUNE)
+
+    cvd = make_model(input_shape=IMAGE_SIZE + (3,), num_classes=2)
+
+    ckpt_path_cvd = "trained_models/best_models/cvd_base_model_best.keras"
+
+    cvd.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=lr),
+        loss=keras.losses.BinaryCrossentropy(from_logits=True),
+        metrics=[keras.metrics.BinaryAccuracy()],
+    )
+    val_cb = keras.callbacks.ModelCheckpoint(
+        ckpt_path_cvd,
+        monitor='val_loss',
+        save_best_only=True,
+        verbose=1
+    )
+    test_cb_cvd = TestMetricsCallback(test_ds_cvd)
+    history_cvd = cvd.fit(
+        train_ds_cvd,
+        epochs=epochs,
+        callbacks=[val_cb, test_cb_cvd],
+        validation_data=val_ds_cvd,
+    )
+    best_model_cvd = keras.models.load_model(ckpt_path_cvd)
+    final_test_loss_cvd, final_test_acc_cvd = best_model_cvd.evaluate(test_ds_cvd, verbose=0)
+    results_cvd = {
+        "epoch_train_loss": history_cvd.history["loss"],
+        "epoch_train_acc": history_cvd.history.get("binary_accuracy"),
+        "epoch_val_loss": history_cvd.history["val_loss"],
+        "epoch_val_acc": history_cvd.history.get("val_binary_accuracy"),
+        "epoch_test_loss": test_cb_cvd.epoch_test_loss,
+        "epoch_test_acc": test_cb_cvd.epoch_test_acc,
+        "final_test_loss": final_test_loss_cvd,
+        "final_test_acc": final_test_acc_cvd,
+    }
+
+    # stanford model
+    dm.filter_images(path=data_path_stanford)
+
+    train_ds_stanford, val_ds_stanford, test_ds_stanford = dm.train_val_test_split(image_size=IMAGE_SIZE, batch_size=batch_size, path=data_path_stanford)
 
     data_augmentation_layers = [
         layers.RandomFlip("horizontal"),
         layers.RandomRotation(0.1),
     ]
 
-    train_ds = train_ds.map(
+    train_ds_stanford = train_ds_stanford.map(
         lambda img, label: (dm.data_augmentation(img, data_augmentation_layers), label),
         num_parallel_calls=tf_data.AUTOTUNE,
     )
 
-    train_ds = train_ds.prefetch(tf_data.AUTOTUNE)
-    val_ds = val_ds.prefetch(tf_data.AUTOTUNE)
+    train_ds_stanford = train_ds_stanford.prefetch(tf_data.AUTOTUNE)
+    val_ds_stanford = val_ds_stanford.prefetch(tf_data.AUTOTUNE)
+    test_ds_stanford = test_ds_stanford.prefetch(tf_data.AUTOTUNE)
 
     stanford = make_model(input_shape=IMAGE_SIZE + (3,), num_classes=NUM_CLASSES_STANFORD_DOGS)
 
-    ckpt_path = "trained_models/best_models/stanford_model_best.keras"
+    ckpt_path_stanford = "trained_models/best_models/stanford_model_best.keras"
 
     stanford.compile(
         optimizer=keras.optimizers.Adam(learning_rate=lr),
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=[keras.metrics.SparseCategoricalAccuracy(name="acc")],
     )
-    callbacks = keras.callbacks.ModelCheckpoint(
-        ckpt_path,
+    val_cb = keras.callbacks.ModelCheckpoint(
+        ckpt_path_stanford,
         monitor='val_loss',
         save_best_only=True,
         verbose=1
     )
-
-    stanford.fit(
-        train_ds,
+    test_cb_stanford = TestMetricsCallback(test_ds_stanford)
+    history_stanford = stanford.fit(
+        train_ds_stanford,
         epochs=epochs,
-        callbacks=callbacks,
-        validation_data=val_ds,
+        callbacks=[val_cb, test_cb_stanford],
+        validation_data=val_ds_stanford,
     )
 
-    stanford_model_best = keras.models.load_model(ckpt_path)
-    val_loss, val_acc = stanford_model_best.evaluate(val_ds)
-    results = {"Validation loss": val_loss, "Validation accuracy": val_acc}
-    return stanford_model_best, results
+    stanford_model_best = keras.models.load_model(ckpt_path_stanford)
+    test_loss_stanford, test_acc_stanford = stanford_model_best.evaluate(test_ds_stanford)
+    results_stanford = {
+        "epoch_train_loss": history_stanford.history["loss"],
+        "epoch_train_acc": history_stanford.history.get("acc", history_stanford.history.get("sparse_categorical_accuracy")),
+        "epoch_val_loss": history_stanford.history["val_loss"],
+        "epoch_val_acc": history_stanford.history.get("val_acc", history_stanford.history.get("val_sparse_categorical_accuracy")),
+        "epoch_test_loss": test_cb_stanford.epoch_test_loss,
+        "epoch_test_acc": test_cb_stanford.epoch_test_acc,
+        "final_test_loss": test_loss_stanford,
+        "final_test_acc": test_acc_stanford,
+    }
+    results = {
+        "cvd": results_cvd,
+        "stanford": results_stanford
+    }
+    return stanford_model_best, (train_ds_cvd, val_ds_cvd, test_ds_cvd), results
 
-def tl_ex2(data_path, stanford_model, epochs, lr, batch_size):
-    dm.filter_images(path=data_path)
+def tl_ex2(stanford_model, epochs, lr, train_ds, val_ds, test_ds):
+    temp_model = keras.models.clone_model(stanford_model)  #copy the model to get a new object
+    temp_model.set_weights(stanford_model.get_weights())  #transfer weights from old to new model
 
-    train_ds, val_ds, test_ds = dm.train_val_test_split(image_size=IMAGE_SIZE, batch_size=batch_size, path=data_path)
-
-    data_augmentation_layers = [
-        layers.RandomFlip("horizontal"),
-        layers.RandomRotation(0.1)
-        ]
-
-    train_ds = train_ds.map(
-        lambda img, label: (dm.data_augmentation(img, data_augmentation_layers), label),
-        num_parallel_calls=tf_data.AUTOTUNE,
-    )
-
-    train_ds = train_ds.prefetch(tf_data.AUTOTUNE)
-    val_ds = val_ds.prefetch(tf_data.AUTOTUNE)
-    test_ds = test_ds.prefetch(tf_data.AUTOTUNE)
-    ex2_inputs = stanford_model.input
+    ex2_inputs = temp_model.input
 
     #get output before last layer
-    x = stanford_model.get_layer('dropout').output
+    x = temp_model.get_layer('dropout').output
     
     #connect to output layer
     new_output = layers.Dense(1, activation=None)(x)
@@ -96,24 +163,33 @@ def tl_ex2(data_path, stanford_model, epochs, lr, batch_size):
     
     ckpt_path = "trained_models/best_models/experiment2_best.keras"
 
-    callbacks = keras.callbacks.ModelCheckpoint(
+    val_cb = keras.callbacks.ModelCheckpoint(
         ckpt_path,
         monitor='val_loss',
         save_best_only=True,
         verbose=1
     )
-    
-    ex2_model.fit(
+    test_cb = TestMetricsCallback(test_ds)
+    history = ex2_model.fit(
         train_ds,
         epochs=epochs,
-        callbacks=callbacks,
+        callbacks=[val_cb, test_cb],
         validation_data=val_ds
     )
 
     ex2_model_best = keras.models.load_model(ckpt_path)
     test_loss, test_acc = ex2_model_best.evaluate(test_ds)
-    results = {"Test loss": test_loss, "Test accuracy": test_acc}
-    return (train_ds, val_ds, test_ds), results
+    results = {
+        "epoch_train_loss": history.history["loss"],
+        "epoch_train_acc": history.history.get("binary_accuracy"),
+        "epoch_val_loss": history.history["val_loss"],
+        "epoch_val_acc": history.history.get("val_binary_accuracy"),
+        "epoch_test_loss": test_cb.epoch_test_loss,
+        "epoch_test_acc": test_cb.epoch_test_acc,
+        "final_test_loss": test_loss,
+        "final_test_acc": test_acc,
+    }
+    return results
 
 def tl_ex3(stanford_model, epochs, lr, train_ds, val_ds, test_ds):
     #experiment 3: load the saved model and replace the output layer of the model, as well as the first two convolutional layers (keep weights of all other layers).
@@ -155,23 +231,32 @@ def tl_ex3(stanford_model, epochs, lr, train_ds, val_ds, test_ds):
     
     ckpt_path = "trained_models/best_models/experiment3_best.keras"
 
-    callbacks = keras.callbacks.ModelCheckpoint(
+    val_cb = keras.callbacks.ModelCheckpoint(
         ckpt_path,
         monitor='val_loss',
         save_best_only=True,
         verbose=1
     )
-    
-    ex3_model.fit(
+    test_cb = TestMetricsCallback(test_ds)
+    history = ex3_model.fit(
         train_ds,
         epochs=epochs,
-        callbacks=callbacks,
+        callbacks=[val_cb, test_cb],
         validation_data=val_ds
     )
 
     ex3_model_best = keras.models.load_model(ckpt_path)
     test_loss, test_acc = ex3_model_best.evaluate(test_ds)
-    results = {"Test loss": test_loss, "Test accuracy": test_acc}
+    results = {
+        "epoch_train_loss": history.history["loss"],
+        "epoch_train_acc": history.history.get("binary_accuracy"),
+        "epoch_val_loss": history.history["val_loss"],
+        "epoch_val_acc": history.history.get("val_binary_accuracy"),
+        "epoch_test_loss": test_cb.epoch_test_loss,
+        "epoch_test_acc": test_cb.epoch_test_acc,
+        "final_test_loss": test_loss,
+        "final_test_acc": test_acc,
+    }
     return results
 
 def tl_ex4(stanford_model, epochs, lr, train_ds, val_ds, test_ds):
@@ -211,50 +296,102 @@ def tl_ex4(stanford_model, epochs, lr, train_ds, val_ds, test_ds):
     )
 
     ckpt_path = "trained_models/best_models/experiment4_best.keras"
-    callbacks = keras.callbacks.ModelCheckpoint(
+    val_cb = keras.callbacks.ModelCheckpoint(
         ckpt_path,
         monitor='val_loss',
         save_best_only=True,
         verbose=1
     )
-
-    ex4_model.fit(
+    test_cb = TestMetricsCallback(test_ds)
+    history = ex4_model.fit(
         train_ds,
         epochs=epochs,
-        callbacks=callbacks,
+        callbacks=[val_cb, test_cb],
         validation_data=val_ds
     )
 
     ex4_model_best = keras.models.load_model(ckpt_path)
     test_loss, test_acc = ex4_model_best.evaluate(test_ds)
-    results = {"Test loss": test_loss, "Test accuracy": test_acc}
+    results = {
+        "epoch_train_loss": history.history["loss"],
+        "epoch_train_acc": history.history.get("binary_accuracy"),
+        "epoch_val_loss": history.history["val_loss"],
+        "epoch_val_acc": history.history.get("val_binary_accuracy"),
+        "epoch_test_loss": test_cb.epoch_test_loss,
+        "epoch_test_acc": test_cb.epoch_test_acc,
+        "final_test_loss": test_loss,
+        "final_test_acc": test_acc,
+    }
     return results
+
+def make_table(model, results, epochs):
+    rows = []
+    for i in range(epochs):
+        row = [
+            i + 1,
+            results["epoch_train_loss"][i],
+            results["epoch_train_acc"][i],
+            results["epoch_val_loss"][i],
+            results["epoch_val_acc"][i],
+            results["epoch_test_loss"][i],
+            results["epoch_test_acc"][i]
+        ]
+        rows.append(row)
+
+    idx = np.argmin(results["epoch_val_loss"])
+    best_row = [
+        f"Best (Epoch {idx + 1})",
+        results["epoch_train_loss"][idx],
+        results["epoch_train_acc"][idx],
+        results["epoch_val_loss"][idx],
+        results["epoch_val_acc"][idx],
+        results["epoch_test_loss"][idx],
+        results["epoch_test_acc"][idx]
+    ]
+    rows.append(best_row)
+
+    headers = ["Epoch", "Train Loss", "Train Acc", "Val Loss", "Val Acc", "Test Loss", "Test Acc"]
+    table_str = tabulate(rows, headers=headers, tablefmt="mixed_outline")
+    print(f"\nModel: {model}")
+    print(table_str)
+    return table_str
 
 def main():
     """Main loop handles execution of all experiments. Each experiment is divided into a separate function returning best model and the results."""
     ##### EXPERIMENTS #####
     # pre
-    EPOCHS=50
+    keras.backend.clear_session()
+    keras.mixed_precision.set_global_policy('mixed_float16')
+    EPOCHS=1
     LR=1e-4
     BATCH_SIZE = 64
 
     # experiment 1
     print("Starting experiment 1 ...")
+    data_path_catsvdogs = "data/PetImages"
     data_path_stanford = "data/stanford_dogs/Images"
 
-    stanford_model, results1 = tl_ex1(data_path_stanford, EPOCHS, LR, BATCH_SIZE)
-    for key, value in results1.items():
-        print(f"{key}: {value}")
+    stanford_model, datasets, results1 = tl_ex1(data_path_catsvdogs, data_path_stanford, EPOCHS, LR, BATCH_SIZE)
+    results_cvd = results1["cvd"]
+    results_stanford = results1["stanford"]
+    print("CVD model:")
+    for key, value in results_cvd.items():
+        if "final" in key:
+            print(f"{key}: {value}")
+    print("Stanford model:")
+    for key, value in results_stanford.items():
+        if "final" in key:
+            print(f"{key}: {value}")
     stanford_model.summary()
     print("Experiment 1 finished.")
 
     # experiment 2
     print("Starting experiment 2 ...")
-    data_path_binary_class = "data/PetImages"
     
-    datasets, results2 = tl_ex2(data_path_binary_class, stanford_model, EPOCHS, LR, BATCH_SIZE)
+    results2 = tl_ex2(stanford_model, EPOCHS, LR, *datasets)
     for key, value in results2.items():
-        print(f"{key}: {value}")
+        if "final" in key:
+            print(f"{key}: {value}")
 
     print("Experiment 2 finished.")
 
@@ -263,7 +400,8 @@ def main():
 
     results3 = tl_ex3(stanford_model, EPOCHS, LR, *datasets)
     for key, value in results3.items():
-        print(f"{key}: {value}")
+        if "final" in key:
+            print(f"{key}: {value}")
 
     print("Experiment 3 finished.")
 
@@ -272,31 +410,33 @@ def main():
 
     results4 = tl_ex4(stanford_model, EPOCHS, LR, *datasets)
     for key, value in results4.items():
-        print(f"{key}: {value}")
+        if "final" in key:
+            print(f"{key}: {value}")
 
     print("Experiment 4 finished.")
 
     # combine all results from each experiment and print in a tabular table with tablefmt="mixed_outline"
     # and put each experiment result on a new row, and the val/test accuracy and loss in the columns
-    # where if a results dict does not contain test or val put NaN instead. Also save to results/results.txt 
+    # where if a results dict does not contain test or val put NaN instead. Also save to results/results.txt
 
-    rows = []
-    for i, res in enumerate([results1, results2, results3, results4], start=1):
-        val_loss = res.get("Validation loss", "NaN")
-        val_acc  = res.get("Validation accuracy", "NaN")
-        test_loss = res.get("Test loss", "NaN")
-        test_acc  = res.get("Test accuracy", "NaN")
-        rows.append([f"Experiment {i}", val_loss, val_acc, test_loss, test_acc])
-
-    headers = ["Experiment", "Validation Loss", "Validation Accuracy", "Test Loss", "Test Accuracy"]
-
-    table_str = tabulate(rows, headers=headers, tablefmt="mixed_outline")
-    print(table_str)
+    table_cvd      = make_table("Cats vs Dogs Base Model", results_cvd, EPOCHS)
+    table_stanford = make_table("Stanford", results_stanford, EPOCHS)
+    table_ex2      = make_table("Experiment 2", results2, EPOCHS)
+    table_ex3      = make_table("Experiment 3", results3, EPOCHS)
+    table_ex4      = make_table("Experiment 4", results4, EPOCHS)
 
     if not os.path.exists("results"):
         os.makedirs("results")
-    with open("results/results.txt", "w") as f:
-        f.write(table_str)
+    with open("results/cvd_results.txt", "w") as f:
+        f.write(table_cvd)
+    with open("results/stanford_results.txt", "w") as f:
+        f.write(table_stanford)
+    with open("results/experiment2_results.txt", "w") as f:
+        f.write(table_ex2)
+    with open("results/experiment3_results.txt", "w") as f:
+        f.write(table_ex3)
+    with open("results/experiment4_results.txt", "w") as f:
+        f.write(table_ex4)
 
     print("All experiments finished, saved results to results/results.txt")
 
