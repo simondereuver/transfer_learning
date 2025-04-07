@@ -1,9 +1,9 @@
 import os
 import tensorflow
 import tensorflow.keras as keras
-from experiments import tl_ex1, tl_ex2, tl_ex3, tl_ex4
-from datamodule import make_table
-from settings import EPOCHS, LR, BATCH_SIZE
+from src.experiments import tl_ex1, tl_ex2, tl_ex3, tl_ex4
+from src.datamodule import make_table
+from src.config.settings import EPOCHS, LR, BATCH_SIZE
 
 def main():
     """Main loop handles execution of all experiments. Each experiment is divided into a separate function returning the best model and its results."""
