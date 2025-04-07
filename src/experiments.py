@@ -1,10 +1,9 @@
 from tensorflow import data as tf_data
 from tensorflow.keras import layers
 import tensorflow.keras as keras
-import numpy as np
-import datamodule as dm
-from model import make_model
-from settings import NUM_CLASSES_STANFORD_DOGS, NUM_CLASSES_CATS_VS_DOGS, IMAGE_SIZE
+import src.datamodule as dm
+from src.model import make_model
+from src.config.settings import NUM_CLASSES_STANFORD_DOGS, NUM_CLASSES_CATS_VS_DOGS, IMAGE_SIZE
 
 class TestMetricsCallback(keras.callbacks.Callback):
     def __init__(self, test_ds):
