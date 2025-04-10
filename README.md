@@ -49,3 +49,7 @@ Finally, in the fourth experiment, we replaced the last two layers of the Stanfo
 ## Results
 
 Among all models, Experiment 2 achieved the best test accuracy 96.23%, outperforming both the baseline CvD model 95.55% and the other transfer learning strategies. Experiment 4 performed slightly worse than experiment 2 on the test accuracy 96.09%, as well as experiment 3 which showed a minor drop in performance 96.20%. These results indicate that in this case, fine-tuning the later layers of the pre-trained Stanford model yielded no significant advantage for transfer learning in test accuracy context. Although the base CvD model already performed strongly, we expected that resetting the convolutional layers in experiments 3 and 4 would allow the model to learn more task-specific, high-level features and thus perform even better. However, the results indicate that this modification did not lead to any improvement in performance in the end. It is worth noting that the accuracy during the early epochs of training is higher in Experiments 2, 3, and 4 compared to the CvD baseline model. This suggests that transfer learning can be beneficial in scenarios with limited amounts of data. Further details of the results can be found in the ```results``` directory.
+
+## Small note
+
+Removed models create by 4060 and 4090 GPU's because of Git LFS storage.
