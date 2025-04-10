@@ -1,58 +1,99 @@
-import datamodule as dm
-import model as custom_model
-from tensorflow import data as tf_data
-from keras import layers
-import keras
-import matplotlib.pyplot as plt
+import os
+import tensorflow
+import tensorflow.keras as keras
+from src.experiments import tl_ex1, tl_ex2, tl_ex3, tl_ex4
+from src.datamodule import make_table
+from src.config.settings import EPOCHS, LR, BATCH_SIZE
+
+def main():
+    """Main loop handles execution of all experiments. Each experiment is divided into a separate function returning the best model and its results."""
+    ##### EXPERIMENTS #####
+    # pre
+    keras.backend.clear_session()
+    keras.mixed_precision.set_global_policy('mixed_float16')
+
+    # experiment 1
+    print("Starting experiment 1 ...")
+    data_path_catsvdogs = "data/PetImages"
+    data_path_stanford = "data/stanford_dogs/Images"
+
+    stanford_model, datasets, results1 = tl_ex1(data_path_catsvdogs, data_path_stanford, EPOCHS, LR, BATCH_SIZE)
+    results_cvd = results1["cvd"]
+    results_stanford = results1["stanford"]
+    print("CVD model:")
+    for key, value in results_cvd.items():
+        if "final" in key:
+            print(f"{key}: {value}")
+    print("Stanford model:")
+    for key, value in results_stanford.items():
+        if "final" in key:
+            print(f"{key}: {value}")
+    stanford_model.summary()
+    print("Experiment 1 finished.")
+
+    # experiment 2
+    print("Starting experiment 2 ...")
+    
+    results2 = tl_ex2(stanford_model, EPOCHS, LR, *datasets)
+    for key, value in results2.items():
+        if "final" in key:
+            print(f"{key}: {value}")
+
+    print("Experiment 2 finished.")
+
+    # experiment 3
+    print("Starting experiment 3 ...")
+
+    results3 = tl_ex3(stanford_model, EPOCHS, LR, *datasets)
+    for key, value in results3.items():
+        if "final" in key:
+            print(f"{key}: {value}")
+
+    print("Experiment 3 finished.")
+
+    # experiment 4
+    print("Starting experiment 4 ...")
+
+    results4 = tl_ex4(stanford_model, EPOCHS, LR, *datasets)
+    for key, value in results4.items():
+        if "final" in key:
+            print(f"{key}: {value}")
+
+    print("Experiment 4 finished.")
+
+    # combine all results from each experiment and print in a tabular table with tablefmt="mixed_outline"
+    # and put each experiment result on a new row, and the val/test accuracy and loss in the columns
+    # where if a results dict does not contain test or val put NaN instead. Also save to results/results.txt
+
+    table_cvd      = make_table("Cats vs Dogs Base Model", results_cvd, EPOCHS)
+    table_stanford = make_table("Stanford", results_stanford, EPOCHS)
+    table_ex2      = make_table("Experiment 2", results2, EPOCHS)
+    table_ex3      = make_table("Experiment 3", results3, EPOCHS)
+    table_ex4      = make_table("Experiment 4", results4, EPOCHS)
+
+    gpus = tensorflow.config.list_physical_devices('GPU')
+    if gpus:
+        gpu_details = tensorflow.config.experimental.get_device_details(gpus[0])
+        gpu_name = gpu_details.get("device_name", "UnknownGPU")
+    else:
+        gpu_name = "NoGPU"
+
+    gpu_name_path = gpu_name.replace(" ", "_")
+    results_path = "results/" + gpu_name_path
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+    with open(f"{results_path}/cvd_results.txt", "w") as f:
+        f.write(table_cvd)
+    with open(f"{results_path}/stanford_results.txt", "w") as f:
+        f.write(table_stanford)
+    with open(f"{results_path}/experiment2_results.txt", "w") as f:
+        f.write(table_ex2)
+    with open(f"{results_path}/experiment3_results.txt", "w") as f:
+        f.write(table_ex3)
+    with open(f"{results_path}/experiment4_results.txt", "w") as f:
+        f.write(table_ex4)
+
+    print("All experiments finished, saved results to results/results.txt")
 
 if __name__ == "__main__":
-
-    #path_to_images = "kagglecatsanddogs_5340" #uncomment and adjust path if needed
-
-    #filter out corrupted images
-    dm.filter_images(path="data/stanford_dogs/Images") #uncomment if running first time
-    
-    IMAGE_SIZE = (180, 180)
-    BATCH_SIZE = 128
-    NUM_CLASSES_STANFORD_DOGS = 120
-    NUM_CLASSES_CATS_DOGS = 2
-
-    train_ds, val_ds = dm.train_val_split(image_size=IMAGE_SIZE, batch_size=BATCH_SIZE, path="stanford_dogs/Images")
-
-    dm.vis_data(train_ds)
-
-    #set how you want to augment the data
-    data_augmentation_layers = [
-        layers.RandomFlip("horizontal"),
-        layers.RandomRotation(0.1),
-    ]
-
-    # Apply `data_augmentation` to the training images.
-    train_ds = train_ds.map(
-        lambda img, label: (dm.data_augmentation(img, data_augmentation_layers), label),
-        num_parallel_calls=tf_data.AUTOTUNE,
-    )
-    # Prefetching samples in GPU memory helps maximize GPU utilization.
-    train_ds = train_ds.prefetch(tf_data.AUTOTUNE)
-    val_ds = val_ds.prefetch(tf_data.AUTOTUNE)
-
-    dm.vis_data_augmentations(train_ds, data_augmentation_layers)
-
-    model = custom_model.make_model(input_shape=IMAGE_SIZE + (3,), num_classes=NUM_CLASSES_STANFORD_DOGS)
-    keras.utils.plot_model(model, show_shapes=True)
-
-    history = custom_model.train_model(model=model, train_ds=train_ds, val_ds=val_ds, epochs=5, ckpt_path="save_at_{epoch}.keras", learning_rate=1e-4,)
-
-    img = keras.utils.load_img("kagglecatsanddogs_5340/PetImages/Cat/6779.jpg", target_size=IMAGE_SIZE)
-    plt.imshow(img)
-    plt.show()
-
-    img_array = keras.utils.img_to_array(img)
-    img_array = keras.ops.expand_dims(img_array, 0)  # Create batch axis
-
-    predictions = model.predict(img_array)
-    score = float(keras.ops.sigmoid(predictions[0][0]))
-    print(f"This image is {100 * (1 - score):.2f}% cat and {100 * score:.2f}% dog.")
-
-    #load model like this:
-    #stanford_model = keras.models.load_model("stanford_dogs_model.h5")
+    main()
