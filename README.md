@@ -52,4 +52,4 @@ Among all models, Experiment 2 achieved the best test accuracy 96.23%, outperfor
 
 ## Small note
 
-Removed models create by 4060 and 4090 GPU's because of Git LFS storage.
+All trained models has been removed because of Git LFS storage needed for other projects.
